@@ -385,6 +385,7 @@ public:
         IUserTaskRunner*    m_taskRunner{nullptr};          // Optional user provided interface for creating tasks
         uint32_t            m_maxConvexHulls{ 64 };         // The maximum number of convex hulls to produce
         uint32_t            m_resolution{ 400000 };         // The voxel resolution to use
+        uint32_t            PATCHED_IN_maxAllowedHullCount { 30000 }; // Throw an error if the initial hull count ever exceeds this number
         double              m_minimumVolumePercentErrorAllowed{ 1 }; // if the voxels are within 1% of the volume of the hull, we consider this a close enough approximation
         uint32_t            m_maxRecursionDepth{ 10 };        // The maximum recursion depth
         bool                m_shrinkWrap{true};             // Whether or not to shrinkwrap the voxel positions to the source mesh on output
@@ -911,6 +912,7 @@ IVHACD* CreateVHACD_ASYNC();    // Create an asynchronous (non-blocking) impleme
 #include <unordered_set>
 #include <utility>
 #include <vector>
+#include "fmt/format.h"
 
 #ifdef _MSC_VER
 #pragma warning(push)
@@ -7464,6 +7466,10 @@ void VHACDImpl::PerformConvexDecomposition()
 
         if ( hullCount > m_params.m_maxConvexHulls && !m_canceled)
         {
+            if(hullCount > m_params.PATCHED_IN_maxAllowedHullCount) {
+                throw std::runtime_error("Attempted allocation of " + std::to_string(hullCount) + " hulls, which exceeds the limit of " + std::to_string(m_params.PATCHED_IN_maxAllowedHullCount) + " in order to avoid crashes due to running out of memory.");
+            }
+
             size_t costMatrixSize = ((hullCount * hullCount) - hullCount) >> 1;
             std::vector<CostTask> tasks;
             tasks.reserve(costMatrixSize);
